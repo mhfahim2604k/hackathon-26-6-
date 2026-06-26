@@ -16,7 +16,7 @@
 | Validation | Zod | Mirrors Pydantic v2 1:1; runtime + compile-time safety |
 | Package manager | npm | Universal; lockfile committed |
 | Testing | Vitest + Supertest | Fast, native TS, easy coverage via v8 |
-| LLM | Optional OpenAI behind `OPENAI_API_KEY` env flag | Rules default; graceful fallback if no key |
+| LLM | Optional Gemini behind `GEMINI_API_KEY` env flag | Rules default; graceful fallback if no key |
 | Time source | `new Date()` (UTC) per request | Stateless, no env override needed |
 | Logging | Pino via Fastify | Structured JSON; secrets-redacting serializer |
 
@@ -137,7 +137,7 @@ HTTP POST /analyze-ticket
         │  tone by user_type (customer | merchant | agent | unknown)
         │  build agent_summary, recommended_next_action, customer_reply
         │  append PIN/OTP warning (en or bn)
-        │  OPTIONAL: if OPENAI_API_KEY set → use LLM to rewrite customer_reply
+        │  OPTIONAL: if GEMINI_API_KEY set → use LLM to rewrite customer_reply
         │  ALWAYS: if LLM fails or no key → use deterministic rules output
         ▼
    GeneratedDraft { agent_summary, recommended_next_action, customer_reply, language }
@@ -381,7 +381,7 @@ Target: **≥95% coverage** (enforced via `vitest.config.ts` thresholds).
 - **CMD:** `["node", "dist/server.js"]`
 - **Health:** `/health` returns `{"status":"ok"}` immediately (no warmup)
 - **No GPU, no model downloads, no large assets**
-- **`.env.example`** ships with placeholders only (`OPENAI_API_KEY=`, `MODEL_NAME=`, `PORT=8000`)
+- **`.env.example`** ships with placeholders only (`GEMINI_API_KEY=`, `MODEL_NAME=`, `PORT=8000`)
 
 ---
 
@@ -392,7 +392,7 @@ Target: **≥95% coverage** (enforced via `vitest.config.ts` thresholds).
 - Real keys live only in:
   - Hosting platform env panel (Render/EC2/Railway/Fly/Vercel)
   - Or hackathon submission form's encrypted private field
-- Pino logger redacts `req.headers.authorization`, `OPENAI_API_KEY`, any `api_key`/`token`-named field
+- Pino logger redacts `req.headers.authorization`, `GEMINI_API_KEY`, any `api_key`/`token`-named field
 
 ---
 

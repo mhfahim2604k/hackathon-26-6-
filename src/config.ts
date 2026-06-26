@@ -8,14 +8,14 @@ import { z } from 'zod';
 
 const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(8000),
-  OPENAI_API_KEY: z.string().optional().default(''),
-  MODEL_NAME: z.string().optional().default('gpt-4o-mini'),
+  GEMINI_API_KEY: z.string().optional().default(''),
+  MODEL_NAME: z.string().optional().default('gemini-2.5-flash'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).optional().default('info'),
 });
 
 export const env = EnvSchema.parse(process.env);
 
-export const hasOpenAIKey = env.OPENAI_API_KEY.trim().length > 0;
+export const hasGeminiKey = env.GEMINI_API_KEY.trim().length > 0;
 
 // ---------- scoring thresholds ----------
 

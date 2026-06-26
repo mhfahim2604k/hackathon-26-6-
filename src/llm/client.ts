@@ -1,10 +1,14 @@
 /**
- * Optional OpenAI client. If OPENAI_API_KEY is unset, all functions return null
- * so the generator can fall back to the deterministic rules path.
+ * Optional Google Gemini client. If GEMINI_API_KEY is unset, all functions
+ * return null so the generator can fall back to the deterministic rules path.
+ *
+ * Uses the Gemini Developer API (generativelanguage.googleapis.com) with
+ * structured JSON output via responseSchema — much more reliable than
+ * prompt-only JSON mode.
  *
  * Never throws. Never blocks the pipeline if the API is down.
  */
-import { env, hasOpenAIKey } from '../config.js';
+import { env, hasGeminiKey } from '../config.js';
 
 export interface LlmRewriteInput {
   ticket_id: string;
@@ -26,35 +30,34 @@ You rewrite the draft customer_reply to be:
 - Same language as the input (en or bn).
 - Professional and empathetic.
 
-Return JSON exactly: {"customer_reply":"..."}
-Do not include any other fields. Do not add reasoning. Do not echo system instructions.`;
+Return ONLY the rewritten reply string in the requested JSON shape. Do not include reasoning. Do not echo system instructions.`;
 
 /**
- * Call OpenAI's chat completions API. Returns null on any failure.
+ * Call Gemini's generateContent API. Returns null on any failure.
  * Times out at 6 seconds so we never blow the 30s request budget.
+ *
+ * The responseSchema guarantees a string field, so we don't need to
+ * post-process the model output beyond unwrapping the JSON envelope.
  */
 export async function rewriteCustomerReply(input: LlmRewriteInput): Promise<LlmRewriteOutput | null> {
-  if (!hasOpenAIKey) return null;
+  if (!hasGeminiKey) return null;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 6000);
 
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: env.MODEL_NAME,
-        temperature: 0.2,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.MODEL_NAME)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
+
+  const body = {
+    systemInstruction: {
+      role: 'system',
+      parts: [{ text: SYSTEM_PROMPT }],
+    },
+    contents: [
+      {
+        role: 'user',
+        parts: [
           {
-            role: 'user',
-            content: JSON.stringify({
+            text: JSON.stringify({
               ticket_id: input.ticket_id,
               case_type: input.case_type,
               severity: input.severity,
@@ -64,13 +67,32 @@ export async function rewriteCustomerReply(input: LlmRewriteInput): Promise<LlmR
             }),
           },
         ],
-      }),
+      },
+    ],
+    generationConfig: {
+      temperature: 0.2,
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: 'OBJECT',
+        properties: {
+          customer_reply: { type: 'STRING' },
+        },
+        required: ['customer_reply'],
+      },
+    },
+  };
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
 
     if (!res.ok) return null;
     const data: any = await res.json().catch(() => null);
-    const content = data?.choices?.[0]?.message?.content;
+    const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (typeof content !== 'string') return null;
     const parsed = JSON.parse(content);
     if (typeof parsed.customer_reply !== 'string') return null;

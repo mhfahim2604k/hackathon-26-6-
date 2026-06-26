@@ -5,7 +5,7 @@
  *
  * Tone by user_type. Language matches the complaint. PIN/OTP warning always appended.
  *
- * Optional LLM: if OPENAI_API_KEY is set, the draft customer_reply is sent through
+ * Optional LLM: if GEMINI_API_KEY is set, the draft customer_reply is sent through
  * the LLM for polish. If the LLM fails or returns nothing, the deterministic draft
  * is used.
  */

@@ -15,12 +15,16 @@ import { registerAnalyzeTicketRoute } from './routes/analyzeTicket.js';
 const REDACT_PATHS = [
   'req.headers.authorization',
   'req.headers.cookie',
-  'req.headers["openai-api-key"]',
-  'OPENAI_API_KEY',
+  'req.headers["x-goog-api-key"]',
+  'GEMINI_API_KEY',
   '*.api_key',
   '*.apiKey',
   '*.token',
   '*.password',
+  // The Gemini client passes the API key as a query-string param (?key=...).
+  // We never log the Gemini URL directly, but redact defensively in case
+  // a future log path surfaces it.
+  'req.query.key',
 ];
 
 async function buildServer() {

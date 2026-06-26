@@ -103,7 +103,7 @@ domain of the next stage. The pipeline is fully type-safe via Zod schemas
 | 2. Extract | `pipeline/extractor.ts` | Mine complaint text — amounts (Arabic + Bangla digits), phones, merchant/agent/txn IDs, time keywords, intent (Banglish map), phishing/injection signals, language. **Never classifies or scores.** |
 | 3. Match | `pipeline/matcher.ts` | Score each transaction against the extraction; detect duplicate-payment pair (60s window); pick top scorer or return `insufficient_data` if ambiguous. **Never classifies, never generates text.** |
 | 4. Classify | `pipeline/classifier.ts` | Decide `case_type`, `department`, `severity`, `human_review_required`, `confidence`. **Never generates text.** |
-| 5. Generate | `pipeline/generator.ts` | Build a deterministic rules-based draft reply; optionally call OpenAI to soften the wording (LLM never sees or returns classified fields — it only re-phrases the safe skeleton). |
+| 5. Generate | `pipeline/generator.ts` | Build a deterministic rules-based draft reply; optionally call Gemini to soften the wording (LLM never sees or returns classified fields — it only re-phrases the safe skeleton). |
 | 6. Safety | `safety/filter.ts` | Scan the generated `customer_reply` for unsafe content (credential requests, refund promises, suspicious third parties, prompt injection, stack traces, API keys). **Only module allowed to mutate text.** |
 
 ### Request flow
@@ -300,7 +300,7 @@ human review is `false` until we have a confident verdict.
 | Model | Where | Purpose |
 |-------|-------|---------|
 | **Rules engine** (deterministic, in-repo) | `src/pipeline/*`, `src/safety/filter.ts` | All classification, scoring, and customer_reply *structure*. |
-| **OpenAI `gpt-4o-mini`** *(optional, env-gated)* | `src/llm/client.ts` | Softens the wording of the customer reply. **Never** sees or returns `case_type`, `severity`, or any classified field. Returns `null` on any failure → deterministic fallback. |
+| **Google Gemini `gemini-2.5-flash`** *(optional, env-gated)* | `src/llm/client.ts` | Softens the wording of the customer reply. **Never** sees or returns `case_type`, `severity`, or any classified field. Returns `null` on any failure → deterministic fallback. JSON output is enforced via `responseSchema`, not just prompting. |
 
 No embeddings or fine-tuned models are used. All evidence reasoning is
 hand-written scoring logic, not a learned model.
@@ -314,7 +314,7 @@ The pipeline is **hybrid**:
 1. **Deterministic baseline** — extractor, matcher, classifier, and safety
    filter are 100% rule-based. They produce a fully-specified output on every
    request.
-2. **Optional LLM rephrasing** — if `OPENAI_API_KEY` is set, the generator
+2. **Optional LLM rephrasing** — if `GEMINI_API_KEY` is set, the generator
    asks the model to rewrite a *safe skeleton* into a more natural-sounding
    customer reply. The model only sees:
    - the safe skeleton text (already passed safety checks),
@@ -383,8 +383,8 @@ Copy `.env.example` to `.env` and edit. **Never commit `.env`.**
 | Var | Default | Purpose |
 |-----|---------|---------|
 | `PORT` | `8000` | HTTP listen port. |
-| `OPENAI_API_KEY` | *(empty)* | Enables LLM rephrasing. Leave empty for deterministic mode. |
-| `MODEL_NAME` | `gpt-4o-mini` | Model identifier used when `OPENAI_API_KEY` is set. |
+| `GEMINI_API_KEY` | *(empty)* | Enables LLM rephrasing via Google Gemini. Get one at https://aistudio.google.com/apikey. Leave empty for deterministic mode. |
+| `MODEL_NAME` | `gemini-2.5-flash` | Gemini model identifier used when `GEMINI_API_KEY` is set. |
 | `LOG_LEVEL` | `info` | Pino log level (`fatal`, `error`, `warn`, `info`, `debug`, `trace`). |
 
 The logger redacts known secret-shaped fields (`authorization`, `cookie`,
@@ -519,7 +519,7 @@ src/
   safety/
     filter.ts            The only text-mutating module. Scans + sanitizes customer_reply.
   llm/
-    client.ts            Optional OpenAI client with 6s timeout, deterministic fallback.
+    client.ts            Optional Gemini client with 6s timeout, deterministic fallback.
   utils/
     bangla.ts            Digit conversion, phone normalization.
     language.ts          Script-ratio language detector.
@@ -561,7 +561,7 @@ The test suite covers:
 - All 8 blocked safety inputs from the prompt
 - All 10 public sample cases from the prompt
 - Every HTTP error path (400 invalid JSON, 415 wrong content-type, 422 schema)
-- The LLM-fallback path (deterministic when no `OPENAI_API_KEY`)
+- The LLM-fallback path (deterministic when no `GEMINI_API_KEY`)
 
 ---
 
