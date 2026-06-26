@@ -5,7 +5,7 @@
     "moduleResolution": "Bundler",
     "lib": ["ES2022"],
     "outDir": "dist",
-    "rootDir": ".",
+    "rootDir": "src",
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -20,6 +20,6 @@
     "declaration": false,
     "sourceMap": true
   },
-  "include": ["src/**/*", "scripts/**/*", "tests/**/*"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "coverage"]
 }
