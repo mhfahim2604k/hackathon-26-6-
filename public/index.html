@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QueueStorm Investigator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>QueueStorm Investigator</h1>
+      <p class="subtitle">AI copilot for digital finance support agents</p>
+    </div>
+    <div class="status" id="statusPill" aria-live="polite">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">Checking backend…</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- LEFT: input form -->
+    <section class="panel form-panel" aria-labelledby="formTitle">
+      <h2 id="formTitle">New ticket</h2>
+
+      <form id="ticketForm" novalidate>
+        <div class="field">
+          <label for="ticket_id">Ticket ID <span class="req">*</span></label>
+          <input type="text" id="ticket_id" name="ticket_id" required placeholder="TKT-001" />
+        </div>
+
+        <div class="field">
+          <label for="complaint">Customer complaint <span class="req">*</span></label>
+          <textarea id="complaint" name="complaint" required rows="6"
+            placeholder="e.g. I sent 5000 taka to a wrong number around 2pm today…"></textarea>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="language">Language</label>
+            <select id="language" name="language">
+              <option value="">— auto —</option>
+              <option value="en">English (en)</option>
+              <option value="bn">Bangla (bn)</option>
+              <option value="mixed">Mixed (mixed)</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="channel">Channel</label>
+            <select id="channel" name="channel">
+              <option value="">—</option>
+              <option value="in_app_chat">in_app_chat</option>
+              <option value="call_center">call_center</option>
+              <option value="email">email</option>
+              <option value="merchant_portal">merchant_portal</option>
+              <option value="field_agent">field_agent</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="user_type">User type</label>
+            <select id="user_type" name="user_type">
+              <option value="">—</option>
+              <option value="customer">customer</option>
+              <option value="merchant">merchant</option>
+              <option value="agent">agent</option>
+              <option value="unknown">unknown</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="campaign_context">Campaign context</label>
+            <input type="text" id="campaign_context" name="campaign_context"
+              placeholder="e.g. boishakh_bonanza_day_1" />
+          </div>
+        </div>
+
+        <fieldset class="txn-fieldset">
+          <legend>Transaction history</legend>
+          <div id="txnList" class="txn-list"></div>
+          <button type="button" id="addTxnBtn" class="btn btn-ghost">+ Add transaction</button>
+        </fieldset>
+
+        <div class="actions">
+          <button type="submit" id="submitBtn" class="btn btn-primary">
+            <span class="btn-label">Analyze ticket</span>
+            <span class="spinner" id="spinner" hidden></span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- RIGHT: result panel -->
+    <section class="panel result-panel" aria-labelledby="resultTitle">
+      <h2 id="resultTitle">Investigation result</h2>
+
+      <div id="resultEmpty" class="empty-state">
+        <p>Submit a ticket on the left to see the verdict, routing, and draft reply.</p>
+      </div>
+
+      <div id="resultError" class="error-banner" hidden></div>
+
+      <div id="resultBody" class="result-body" hidden>
+        <div class="chips" id="chipsRow"></div>
+
+        <dl class="kv">
+          <div>
+            <dt>Relevant transaction</dt>
+            <dd id="kvTxn">—</dd>
+          </div>
+          <div>
+            <dt>Confidence</dt>
+            <dd id="kvConfidence">—</dd>
+          </div>
+        </dl>
+
+        <div class="card">
+          <h3>Agent summary</h3>
+          <p id="agentSummary"></p>
+        </div>
+
+        <div class="card">
+          <h3>Recommended next action</h3>
+          <p id="recommendedAction"></p>
+        </div>
+
+        <div class="card card-quote">
+          <h3>Customer reply <small>(copy &amp; send)</small></h3>
+          <blockquote id="customerReply"></blockquote>
+        </div>
+
+        <div id="reasonSection" class="card" hidden>
+          <h3>Reason codes</h3>
+          <div id="reasonCodes" class="chips chips-small"></div>
+        </div>
+
+        <div id="violationSection" class="card card-warn" hidden>
+          <h3>Safety violations</h3>
+          <p>The generator emitted content that was blocked or rewritten by the safety filter:</p>
+          <ul id="violationList"></ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <small>QueueStorm Investigator · Backend: <code id="footerBackend">http://localhost:8000</code></small>
+  </footer>
+
+  <!-- Transaction row template -->
+  <template id="txnRowTemplate">
+    <div class="txn-row">
+      <div class="txn-grid">
+        <input type="text" data-key="transaction_id" placeholder="TXN-9101" required />
+        <input type="text" data-key="timestamp" placeholder="2026-04-14T14:08:22Z" required />
+        <select data-key="type" required>
+          <option value="">type…</option>
+          <option value="transfer">transfer</option>
+          <option value="payment">payment</option>
+          <option value="cash_in">cash_in</option>
+          <option value="cash_out">cash_out</option>
+          <option value="settlement">settlement</option>
+          <option value="refund">refund</option>
+        </select>
+        <input type="number" data-key="amount" placeholder="amount" min="0" step="0.01" required />
+        <input type="text" data-key="counterparty" placeholder="counterparty" required />
+        <select data-key="status" required>
+          <option value="">status…</option>
+          <option value="completed">completed</option>
+          <option value="failed">failed</option>
+          <option value="pending">pending</option>
+          <option value="reversed">reversed</option>
+        </select>
+      </div>
+      <button type="button" class="btn btn-icon remove-txn" aria-label="Remove transaction">✕</button>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
